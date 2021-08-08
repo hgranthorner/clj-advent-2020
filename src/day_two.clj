@@ -9,17 +9,57 @@
 
 (defn string-to-password
   [s]
-  (let [matches ((comp rest re-matches) reg s)]
-    (def z matches)
-    {:min (first matches)
-         :max (second matches)
-         :char (get matches 2)
-         :password (last matches)}))
+  (let [[min max char password] ((comp rest re-matches) reg s)]
+    {:min (Integer/parseInt min)
+     :max (Integer/parseInt max)
+     :char (first char)
+     :password password}))
 
-(->> sample
-     s/split-lines
-     (map string-to-password))
+(defn check-validity
+  [{:keys [min max char password]}]
+  (if (<= min (count (filter #(= char %) password)) max)
+    1
+    0))
 
+(defn puzzle
+  [input f]
+  (->> input
+         s/split-lines
+         (transduce
+          (comp
+           (map string-to-password)
+           (map f))
+          +)))
+
+(defn puzzle-one
+  [input]
+  (->> input
+       s/split-lines
+       (transduce
+        (comp
+         (map string-to-password)
+         (map check-validity))
+        +)))
+
+(defn xor
+  [b1 b2]
+  (let [v1 (if (= true b1) 1 0)
+        v2 (if (= true b2) 1 0)]
+    (= (+ v1 v2) 1)))
+
+(defn check-validity2
+  [{:keys [min max char password]}]
+  (if (xor
+       (= (get password (dec min)) char)
+       (= (get password (dec max)) char))
+    1
+    0))
+
+
+(comment
+  (puzzle sample check-validity2)
+  (puzzle input check-validity)
+  (puzzle input check-validity2))
 
 (def input "15-16 p: ppppppppppplppppp
 4-9 m: xvrwfmkmmmc
