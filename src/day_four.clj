@@ -1,7 +1,8 @@
 (ns day-four
-  (:require [clojure.string :as s]
+  (:require [clojure.string :as str]
             [clojure.pprint :as pp]
-            [clojure.set :refer [superset?]]))
+            [clojure.set :refer [superset?]]
+            [clojure.spec.alpha :as s]))
 
 ; Part 1 done. Part 2 will require a refactor where we make a map out of the
 ; input data and use clojure.spec to validate it
@@ -35,24 +36,96 @@ iyr:2011 ecl:brn hgt:59in")
 (defn parse-passports
   [x]
   (->>
-   (s/split x #"\n\n")
+   (str/split x #"\n\n")
    (map #(->
           %
-          (s/replace "\n" " ")
-          (s/split #" ")))))
+          (str/replace "\n" " ")
+          (str/split #" ")))))
 
 (defn valid-passport?
   [x]
   (superset?
           (->>
            x
-           (map (fn [s] (first (s/split s #":"))))
+           (map (fn [s] (first (str/split s #":"))))
            (into #{})) required-fields))
+(comment
+ (count
+  (filter true?
+   (map valid-passport? (parse-passports sample)))))
 
-(count
- (filter true?
-  (map valid-passport? (parse-passports input))))
+(defn try-parse-int
+  [x]
+  (try
+    (Integer/parseInt x)
+    (catch Exception _ -1)))
 
+(defn hex?
+  [x]
+  (let [chars (-> (str (range 10) \a \b \c \d \e \f)
+                  (str/replace #"[\(\) ]" "")
+                  set)]
+    (every? #(contains? chars %) x)))
+
+(s/def ::byr #(<= 1920 (try-parse-int %) 2002))
+(s/def ::iyr #(<= 2010 (try-parse-int %) 2020))
+(s/def ::eyr #(<= 2020 (try-parse-int %) 2030))
+(s/def ::hgt (s/or :in (s/and string?
+                              #(<= 59 (try-parse-int (str/replace % "in" "")) 76))
+                   :cm (s/and string?
+                              #(<= 150 (try-parse-int (str/replace % "cm" "")) 193))))
+(s/def ::hcl (s/and string?
+                    #(= (first %) \#)
+                    #(hex? (apply str (rest %)))
+                    #(= (count %) 7)))
+(s/def ::ecl #(contains? #{"amb" "blu" "brn" "gry" "grn" "hzl" "oth"} %))
+(s/def ::pid (s/and #(<= 0 (try-parse-int %))
+                    #(= (count %) 9)))
+(s/def ::passport (s/keys :req [::byr ::iyr ::eyr ::hgt ::hcl ::ecl ::pid]))
+
+(comment
+ (s/valid? ::pid "12345678a")
+ (s/valid? ::ecl "blu")
+ (s/valid? ::ecl "red")
+ (s/valid? ::hcl "#123456")
+ (s/valid? ::hcl "#12345t")
+ (s/valid? ::hcl "a12345c")
+ (s/valid? ::hgt "160cm")
+ (s/valid? ::hgt "100cm")
+ (s/valid? ::hgt "100ft")
+ (s/valid? even? 10))
+
+(defn passport->map
+  [p]
+  (into {}
+    (for [[k v] (->> p
+                     (map #(str/split % #":"))
+                     (into {}))]
+     [(keyword "day-four" k) v])))
+
+
+;; (def valid-passport "pid:087499704 hgt:74in ecl:grn iyr:2012 eyr:2030 byr:1980
+;; hcl:#623a2f")
+
+;; (def valid-passport "eyr:2029 ecl:blu cid:129 byr:1989
+;; iyr:2014 pid:896056539 hcl:#a97842 hgt:165cm")
+
+;; (def valid-passport "hcl:#888785
+;; hgt:164cm byr:2001 iyr:2015 cid:88
+;; pid:545766238 ecl:hzl
+;; eyr:2022")
+
+(comment
+  (s/valid? ::passport (-> valid-passport
+                          parse-passports
+                          first
+                          passport->map)))
+
+(->> input
+    parse-passports
+    (map #(s/valid? ::passport (passport->map %)))
+    (filter #(= true %))
+    count)
 
 (def input "byr:1971
 eyr:2039
