@@ -44,15 +44,33 @@
 
 (defn puzzle-one
   [input]
+  (apply max (plane-ids input)))
+
+(defn plane-ids
+  [input]
   (let [f (comp
             (map plane-info)
             (map :id))]
-    (apply max (into [] f input))))
+    (into [] f input)))
+
+(defn find-missing
+  [ids]
+  (->> ids
+       sort
+       (partition 2)
+       (filter (fn [[mn mx]] (= 2 (- mx mn))))
+       first
+       first
+       inc))
+
 
 
 (comment
   (def input (-> "src/day_five.txt" slurp split-lines))
   (apply max (map plane-info input))
+  (partition 2 (sort (plane-ids input)))
+  (partition 2 (plane-ids input))
+  (find-missing (plane-ids input))
   (puzzle-one input)
   (plane-info sample2)
   (plane-info sample3)
