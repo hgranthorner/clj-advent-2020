@@ -58,7 +58,7 @@ dotted black bags contain no other bags.")
        (filter some?)
        set))
 
-(can-hold x "dotted black bag")
+; (can-hold x "dotted black bag")
 
 (defn puzzle-one
   [input]
@@ -74,7 +74,60 @@ dotted black bags contain no other bags.")
           bags
           (recur new-bags))))))
 
+; {bag [{b1 1} {b2 3}]}
+; [bag] 0
+; [b1 b2] 4
+;
+(declare x)
+
+(defn- containing-bags
+  [bag-map bag]
+  (loop [bags-to-check [bag]
+         total-bags 0]
+    (if-not (empty? bags-to-check)
+      (let [next-bag-maps (mapcat #(get bag-map %) bags-to-check)
+            next-bags (mapcat keys next-bag-maps)
+            amount (reduce + (mapcat vals next-bag-maps))]
+        (recur next-bags (+ total-bags amount)))
+      total-bags)))
+
+; (containing-bags x "dotted-black-bag")
+
+(defn puzzle-two
+  [input]
+  (let [bag-map (->> input
+                         s/split-lines
+                         (sequence clean-str)
+                         (map #(s/split % #" contain "))
+                         (map (fn [[k vs]] [k (vec (s/split vs #", "))]))
+                         arrs->bag-map)]
+    (def bm bag-map)
+    (loop [bags-to-check ["shiny gold bag"]
+           total 0]
+      (let [next-bags (mapcat #(get bag-map %) bags-to-check)
+            next-bags-to-check (mapcat #(keys %) next-bags)
+            add-to-total (reduce + (mapcat #(vals %) next-bags))]
+        (if-not (= 0 add-to-total)
+          (recur next-bags-to-check (+ add-to-total total))
+          total)))))
+
+(def exp-m {:name "shiny gold bag"
+            :val 1
+            :children [{:name "dark olive bag"
+                        :val 1
+                        :children [{:name "faded blue bag" :val 3}
+                                   {:name "dotted black bag" :val 4}]}
+
+                       {:name "vibrant plum bag"
+                        :val 2
+                        :children [{:name "faded blue bag" :val 5}
+                                   {:name "dotted black bag" :val 6}]}]})
+
+
+
 (comment
+  (puzzle-two input)
+
   (puzzle-one input)
   (count (puzzle-one (slurp "src/day_seven.txt")))
   ; Find which containers can hold a specific bag
@@ -83,10 +136,25 @@ dotted black bags contain no other bags.")
            container))
        x)
   (puzzle-one input)
+
+  (def y (->> input
+             s/split-lines
+             (sequence clean-str)
+             (map #(s/split % #" contain "))
+             first))
+
+  {:name (first y)
+   :val 1
+   :children (vec
+              (map #(let [m (str->bag-amount-map %)
+                          k (first (keys m))
+                          v (first (vals m))]
+                      {:name k :val v}) (s/split (second y) #", ")))}
+
   (def x (->> input
            s/split-lines
            (sequence clean-str)
            (map #(s/split % #" contain "))
            (map (fn [[k vs]] [k (vec (s/split vs #", "))]))
-           arrs->bag-map)))
-(comment)
+           arrs->bag-map))
+ (comment))
